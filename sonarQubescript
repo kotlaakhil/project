@@ -57,4 +57,4 @@ echo "CREATE DATABASE sonarqube_db;
 CREATE USER 'sonarqube_user'@'localhost' IDENTIFIED BY 'password';
 GRANT ALL PRIVILEGES ON sonarqube_db.* TO 'sonarqube_user'@'localhost' IDENTIFIED BY 'password';
 FLUSH PRIVILEGES;" > /tmp/sonar.sql
-
+ii
