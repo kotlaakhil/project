@@ -57,4 +57,54 @@ echo "CREATE DATABASE sonarqube_db;
 CREATE USER 'sonarqube_user'@'localhost' IDENTIFIED BY 'password';
 GRANT ALL PRIVILEGES ON sonarqube_db.* TO 'sonarqube_user'@'localhost' IDENTIFIED BY 'password';
 FLUSH PRIVILEGES;" > /tmp/sonar.sql
-ii
+
+mysql </tmp/sonar.sql
+if [ $? -ne 0 ] ; then
+   echo " Database update ... Failed "
+else
+   echo "Database update ... Success"
+fi	
+
+echo " Creating sonarqube user account "
+useradd sonarqube
+if [ $? -ne 0 ] ; then
+   echo " Creating sonarqube user account ... Failed "
+else
+   echo " Creating sonarqube user account ... Success"
+fi
+
+echo "Downloading sonarqube"
+wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-6.7.6.zip  -O /tmp/sonarqube-6.7.6.zip &>>$LOG
+if [ $? -ne 0 ] ; then
+   echo " Downloading sonarqube ... Failed "
+else
+   echo " Downloading sonarqube ... Success"
+fi
+
+echo " Extracting Soanrqube package"
+unzip /tmp/sonarqube-6.7.6.zip  &>>$LOG
+chown sonarqube. /opt/sonarqube -R
+if [ $? -ne 0 ] ; then
+   echo " Extracting Soanrqube package ... Failed "
+else
+   echo " Extracting Soanrqube package ... Success"
+fi
+
+echo "Soanrqube DB configuration Update"
+echo 'sonar.jdbc.username=sonarqube_user
+sonar.jdbc.password=password
+sonar.jdbc.url=jdbc:mysql://localhost:3306/sonarqube_db?useUnicode=true&amp;characterEncoding=utf8&amp;rewriteBatchedStatements=true&amp;useConfigs=maxPerformance' > /opt/sonarqube/conf/sonar.properties
+
+#or
+#if [ -d /opt/sonarqube ] ; then
+#        echo " Sonarqube is installation is .. Done "
+#else  
+#   wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-6.7.6.zip  -O /tmp/sonarqube-6.7.6.zip &>>$LOG
+#   echo " Extracting Soanrqube package"
+#  unzip -o /tmp/sonarqube-6.7.6.zip  &>>$LOG	
+#	mv sonarqube-6.7.6 /opt/sonarqube
+#	chown sonarqube. /opt/sonarqube -R
+#	echo 'sonar.jdbc.username=sonarqube_user
+#    sonar.jdbc.password=password
+#   sonar.jdbc.url=jdbc:mysql://localhost:3306/sonarqube_db?useUnicode=true&amp;characterEncoding=utf8&amp;rewriteBatchedStatements=true&amp;useConfigs=maxPerformance' > /opt/sonarqube/conf/sonar.properties
+#fi
