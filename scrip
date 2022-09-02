@@ -1,0 +1,123 @@
+#!/bin/bash
+LOG=/tmp/sonar.log
+ID=$(id -u)
+MYSQL_URL=http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+#MYSQL_RPM=mysql-community-release-el7-5.noarch.rpm
+MYSQL_RPM=$(echo $MYSQL_URL | cut -d / -f4)
+SONAR_URL=https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-6.7.6.zip
+#SONAR_ZIP=sonarqube-6.7.6.zip
+SONAR_ZIP=$(echo $SONAR_URL | awk -F / '{print $NF}')
+#SONAR_SRC=sonarqube-6.7.6
+SONAR_SRC=$(echo $SONAR_URL | awk -F / '{print $NF}' | sed 's/.zip//g') 
+SONAR_DIR=/opt/sonarqube
+
+R='\033[0;31m'
+G='\033[0;32m'
+Y='\033[0;33m'
+N='\033[0m'
+
+
+if [ $ID -ne 0 ] ; then
+   echo " you are the root user, you dont have permissions to run this "
+   exit 1
+else
+    echo " you are running script file successfu;lly using root user"
+fi
+
+VALIDATE(){
+if [ $1 -ne 0 ]; then
+    echo " $2 ........ $R FAILED $N "
+	exit 1
+else
+    echo " $2 ........ $G SUCCESS $N"
+fi
+}
+	
+#echo " Installing SonarQube Dependencies "
+yum install wget java-11-openjdk unzip -y &>>$LOG
+VALIDATE $? " Installing SonarQube Dependencies "
+#if [ $? -ne 0 ] ; then
+#   echo " Installing SonarQube Dependencies ... Failed "
+#   exit 1
+#else
+#    echo " Installing SonarQube Dependencies ... Success"
+#fi
+
+#echo " Downloading Mysql Package "
+wget $MYSQL_URL -O /tmp/$MYSQL_RPM &>>$LOG
+#-O /tmp/mysql-community-release-el7-5.noarch.rpm &>>$LOG
+VALIDATE $? " Downloading Mysql Package "
+#if [ $? -ne 0 ] ; then
+#   echo " Downloading Mysql Package ... Failed "
+#   exit 1
+#else
+#    echo " Downloading Mysql Package ... Success"
+#fi	
+
+#echo " Installing Mysql rpm Package "
+cd /tmp/
+rpm -ivh $MYSQL_RPM  &>>$LOG
+yum install  mysql-community-server -y  &>>$LOG
+VALIDATE $? "Installing Mysql rpm Package"
+#if [ $? -ne 0 ] ; then
+#   echo " Installing Mysql rpm Package ... Failed "
+#   exit 1
+#else
+#    echo " Installing Mysql rpm Package ... Success"
+#fi
+
+if [ -f /tmp/sonar.sql ] ; then 
+    echo " SonarQube Database Update ..!"
+else
+	echo "SonarQube Database Update"
+	echo "CREATE DATABASE sonarqube_db;
+	CREATE USER 'sonarqube_user'@'localhost' IDENTIFIED BY 'password';
+	GRANT ALL PRIVILEGES ON sonarqube_db.* TO 'sonarqube_user'@'localhost' IDENTIFIED BY 'password';
+	FLUSH PRIVILEGES;" > /tmp/sonar.sql
+	mysql </tmp/sonar.sql
+	VALIDATE $? " SonarQube Database Update "
+	#if [ $? -ne 0 ] ; then
+    #    echo " Database update ... Failed "
+    #else
+    #    echo "Database update ... Success"
+    #fi	
+fi
+
+egrep "soanrqube" /etc/passwd >/dev/null
+if [ $? -ne 0 ] ; then 
+    echo  " SonarQube user is already created ...! "
+else
+	echo " Creating sonarqube user account "
+    useradd sonarqube
+	VALIDATE $? " Creating sonarqube user account"
+	#if [ $? -ne 0 ] ; then
+    #    echo " Creating sonarqube user account ... Failed "
+    #else
+    #    echo " Creating sonarqube user account ... Success"
+	#fi	
+fi   
+
+if [ -d $SONAR_DIR ] ; then
+        echo " Sonarqube is installation is .. Done "
+else  
+   wget $SONAR_URL  -O /tmp/$SONAR_ZIP &>>$LOG
+   echo " Extracting Soanrqube package"
+  unzip -o /tmp/$SONAR_ZIP  &>>$LOG	
+	mv $SONAR_SRC $SONAR_DIR
+	chown $SONAR_DIR. $SONAR_DIR -R
+	echo 'sonar.jdbc.username=sonarqube_user
+    sonar.jdbc.password=password
+   sonar.jdbc.url=jdbc:mysql://localhost:3306/sonarqube_db?useUnicode=true&amp;characterEncoding=utf8&amp;rewriteBatchedStatements=true&amp;useConfigs=maxPerformance' > /opt/sonarqube/conf/sonar.properties
+fi
+
+
+echo " Updating Sonarqude sonar.sh file "
+sed -i 's/#RUN_AS_USER=/RUN_AS_USER=sonarqube/g' $SONAR_DIR/bin/linux-x86-64/sonar.sh
+VALIDATE $? "Updating Sonarqude sonar.sh file"
+#if [ $? -ne 0 ] ; then
+#   echo " Updating Sonarqude sonar.sh file ... Failed "
+#else
+#   echo " Updating Sonarqude sonar.sh file ... Success"
+#fi
+
+sh $SONAR_DIR/bin/linux-x86-64/sonar.sh start 
