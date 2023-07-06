@@ -10,7 +10,7 @@ else
 fi
 
 echo " Installing SonarQube Dependencies "
-yum install wget java1.8.0-openjdk unzip -y &>>$LOG
+yum install wget java1.8.0-openjdk  -y &>>$LOG
 
 if [ $? -ne 0 ] ; then
    echo " Installing SonarQube Dependencies ... Failed "
